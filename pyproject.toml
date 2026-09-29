@@ -1,0 +1,11 @@
+[project]
+name = "flood-risk-prediction"
+version = "1.0.0"
+description = "AI-Based Flood Risk Prediction and Early Warning System (ML-II BAI702 project)"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]

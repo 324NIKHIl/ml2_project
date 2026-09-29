@@ -1,0 +1,101 @@
+# =====================================================================
+#  AI-Based Flood Risk Prediction and Early Warning System
+#  Central configuration - every stage of the pipeline reads from here.
+# =====================================================================
+
+project:
+  name: "AI-Based Flood Risk Prediction and Early Warning System"
+  random_seed: 42
+
+# All paths are relative to the project root.
+paths:
+  raw_dir: data/raw               # source tables (one CSV per data source)
+  interim_dir: data/interim       # integrated + cleaned tables
+  processed_dir: data/processed   # model-ready feature table
+  models_dir: models              # trained model artefacts (.joblib)
+  reports_dir: reports            # metrics, rankings, predictions
+  figures_dir: reports/figures    # EDA + evaluation plots
+
+# ---------------------------------------------------------------------
+# 1-2. Data collection & integration
+# ---------------------------------------------------------------------
+data:
+  # synthetic : generate realistic IMD/CWC/ERA5-style tables for 34 Indian districts
+  # local     : use your own CSVs placed in data/raw (see docs/data_schema.md)
+  source: synthetic
+  start_date: "2010-01-01"
+  end_date: "2023-12-31"
+  synthetic:
+    target_flood_rate: 0.035   # share of region-days that are flood days
+    missing_rate: 0.02         # share of sensor readings dropped (missing values)
+    outlier_rate: 0.002        # share of readings corrupted (spikes / sentinels)
+    duplicate_rate: 0.001      # share of rows duplicated (integration de-dup test)
+
+# ---------------------------------------------------------------------
+# Prediction target
+# ---------------------------------------------------------------------
+target:
+  # Early warning: use conditions observed on day t to predict a flood on day t + horizon.
+  forecast_horizon_days: 1
+
+# ---------------------------------------------------------------------
+# Temporal split (no shuffling - avoids leaking the future into training)
+# ---------------------------------------------------------------------
+split:
+  train_end: "2019-12-31"   # train      : start_date .. train_end
+  valid_end: "2021-12-31"   # validation : train_end .. valid_end  (model selection + calibration)
+                            # test       : valid_end .. end_date   (final, untouched evaluation)
+
+# ---------------------------------------------------------------------
+# 5. Feature engineering & selection
+# ---------------------------------------------------------------------
+features:
+  rain_windows: [3, 7, 14, 30]    # cumulative rainfall windows (days)
+  selection:
+    enabled: true
+    sample_size: 80000            # rows sampled from train set for ranking
+    correlation_threshold: 0.95   # drop one of any pair more correlated than this
+    top_k: 22                     # number of features kept
+
+# ---------------------------------------------------------------------
+# 6. Machine learning models
+# ---------------------------------------------------------------------
+models:
+  selection_metric: pr_auc        # pr_auc suits the rare-event (imbalanced) setting
+  decision_threshold: 0.5         # probability >= 0.5 (High/Severe) counts as "flood predicted"
+  calibrate: true                 # isotonic calibration on the validation set
+  tuning:
+    n_iter: 8                     # randomized-search iterations when run with --tune
+    cv_splits: 3                  # TimeSeriesSplit folds
+  logistic_regression:
+    C: 1.0
+    max_iter: 3000
+  random_forest:
+    n_estimators: 300
+    max_depth: 14
+    min_samples_leaf: 20
+    max_features: sqrt
+  xgboost:
+    n_estimators: 600
+    max_depth: 5
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_weight: 5
+    reg_lambda: 1.0
+
+# ---------------------------------------------------------------------
+# 8. Risk classification framework (report section 16)
+# ---------------------------------------------------------------------
+risk_levels:
+  - {name: Low,      min: 0.00, max: 0.25, color: "#2e7d32"}
+  - {name: Moderate, min: 0.25, max: 0.50, color: "#f9a825"}
+  - {name: High,     min: 0.50, max: 0.75, color: "#ef6c00"}
+  - {name: Severe,   min: 0.75, max: 1.00, color: "#c62828"}
+
+# ---------------------------------------------------------------------
+# 10. Early warning
+# ---------------------------------------------------------------------
+early_warning:
+  alert_min_level: High           # regions at or above this level raise an alert
+  top_factors: 5                  # contributing factors listed per alert

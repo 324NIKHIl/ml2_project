@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# generated artefacts (re-create with: python scripts/run_pipeline.py)
+data/raw/*.csv
+data/interim/*
+data/processed/*
+models/*.joblib
+reports/*
+!data/**/.gitkeep
+!models/.gitkeep
+!reports/.gitkeep
