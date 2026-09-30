@@ -67,7 +67,7 @@ def build_features(df: pd.DataFrame, rain_windows: list[int], horizon: int = 1,
     df["rain_max_3d"] = roll("rainfall_mm", 3, "max")
     weekly = df["rain_7d"] if 7 in rain_windows else roll("rainfall_mm", 7, "sum")
     df["rain_intensity_ratio"] = df["rainfall_mm"] / (weekly + 1.0)
-    df["wet_days_7d"] = (df["rainfall_mm"] > 2.5).groupby(df["region_id"]).transform(
+    df["wet_days_7d"] = (df["rainfall_mm"] > 2.5).astype(float).groupby(df["region_id"]).transform(
         lambda s: s.rolling(7, min_periods=1).sum())
 
     # --- River: level relative to the CWC danger level, and its trend -------------------------

@@ -27,6 +27,8 @@ python scripts/run_pipeline.py    # data -> EDA -> features -> 3 models -> evalu
 streamlit run app/dashboard.py    # open http://localhost:8501
 ```
 
+Tested on Python 3.11 with pandas 2.3 and 3.0, scikit-learn 1.7 and 1.9, and Streamlit 1.46 and 1.64.
+
 Other commands:
 
 ```bash

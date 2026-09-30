@@ -57,19 +57,19 @@ def _rolling_sum(a: np.ndarray, w: int) -> np.ndarray:
 
 def _simulate_rainfall(rng, regions, dates) -> np.ndarray:
     n_d, n_r = len(dates), len(regions)
-    month = dates.month.values - 1
+    month = dates.month.to_numpy() - 1
     profiles = np.array([RAIN_PROFILES[p] for p in regions["rain_profile"]])
     profiles = profiles / profiles.sum(axis=1, keepdims=True)          # (n_r, 12)
 
-    years = dates.year.values
+    years = dates.year.to_numpy()
     uniq_years = np.unique(years)
     year_factor = rng.lognormal(0.0, 0.22, size=(len(uniq_years), n_r))
     yf = year_factor[np.searchsorted(uniq_years, years)]                # (n_d, n_r)
 
     w = profiles[:, month].T                                            # (n_d, n_r)
     p_wet = np.clip(0.04 + 2.4 * w, 0.03, 0.85)
-    monthly_total = regions["annual_rain_mm"].values[None, :] * w * yf
-    mean_wet_amount = monthly_total / (dates.days_in_month.values[:, None] * p_wet)
+    monthly_total = regions["annual_rain_mm"].to_numpy()[None, :] * w * yf
+    mean_wet_amount = monthly_total / (dates.days_in_month.to_numpy()[:, None] * p_wet)
 
     # Wet/dry persistence: P(wet | wet) > P(wet | dry) while keeping P(wet) = p_wet.
     wet = np.zeros((n_d, n_r), dtype=bool)
@@ -97,9 +97,9 @@ def _simulate_rainfall(rng, regions, dates) -> np.ndarray:
 
 def _simulate_weather(rng, regions, dates, rain):
     n_d, n_r = rain.shape
-    doy = dates.dayofyear.values[:, None]
-    lat = regions["latitude"].values[None, :]
-    elev = regions["elevation_m"].values[None, :]
+    doy = dates.dayofyear.to_numpy()[:, None]
+    lat = regions["latitude"].to_numpy()[None, :]
+    elev = regions["elevation_m"].to_numpy()[None, :]
 
     t_mean = 28.0 - 0.0065 * elev - 0.25 * np.maximum(lat - 15, 0)
     amplitude = 2.5 + 0.35 * np.maximum(lat - 10, 0)
@@ -108,9 +108,9 @@ def _simulate_weather(rng, regions, dates, rain):
     temp = t_mean + seasonal - 1.8 * wet - 0.02 * np.minimum(rain, 150) + rng.normal(0, 1.2, (n_d, n_r))
 
     profiles = np.array([RAIN_PROFILES[p] for p in regions["rain_profile"]])
-    monsoonality = (profiles / profiles.sum(1, keepdims=True))[:, dates.month.values - 1].T * 12
+    monsoonality = (profiles / profiles.sum(1, keepdims=True))[:, dates.month.to_numpy() - 1].T * 12
     coastal = (elev < 20).astype(float) * 8
-    arid = (regions["land_use"].values[None, :] == "arid") * 15
+    arid = (regions["land_use"].to_numpy()[None, :] == "arid") * 15
     humidity = 42 + 14 * monsoonality + 12 * wet + coastal - arid + rng.normal(0, 6, (n_d, n_r))
     return temp, np.clip(humidity, 8, 100)
 
@@ -118,7 +118,7 @@ def _simulate_weather(rng, regions, dates, rain):
 def _simulate_soil(regions, rain, temp) -> tuple[np.ndarray, np.ndarray]:
     n_d, n_r = rain.shape
     porosity = np.select(
-        [regions["land_use"].values == "wetland", regions["land_use"].values == "arid"],
+        [regions["land_use"].to_numpy() == "wetland", regions["land_use"].to_numpy() == "arid"],
         [0.50, 0.35], 0.45,
     )
     sm = np.zeros((n_d, n_r))
@@ -134,8 +134,8 @@ def _simulate_soil(regions, rain, temp) -> tuple[np.ndarray, np.ndarray]:
 
 def _simulate_river(rng, regions, rain, sm, porosity):
     n_d, n_r = rain.shape
-    catch = regions["catchment_factor"].values
-    urban = regions["urban_fraction"].values
+    catch = regions["catchment_factor"].to_numpy()
+    urban = regions["urban_fraction"].to_numpy()
     runoff_coef = 0.15 + 0.85 * (sm / porosity) ** 2 + 0.3 * urban
 
     storage = np.zeros((n_d, n_r))
@@ -149,7 +149,7 @@ def _simulate_river(rng, regions, rain, sm, porosity):
 
     scale = np.quantile(storage, 0.95, axis=0) + 1e-6
     rise = 5.5 * (storage / scale) ** 0.8                               # metres above base stage
-    base_stage = rng.uniform(40, 120, n_r) + regions["elevation_m"].values * 0.9
+    base_stage = rng.uniform(40, 120, n_r) + regions["elevation_m"].to_numpy() * 0.9
     level = base_stage + rise + rng.normal(0, 0.05, (n_d, n_r))
     discharge = 180 * catch * (rise + 0.3) ** 1.7 * rng.lognormal(0, 0.05, (n_d, n_r))
 
@@ -161,10 +161,10 @@ def _simulate_river(rng, regions, rain, sm, porosity):
 
 def _simulate_floods(rng, regions, rain, sm, porosity, level, danger, target_rate):
     n_d, n_r = rain.shape
-    urban = regions["urban_fraction"].values
-    slope = regions["slope_deg"].values
-    elev = regions["elevation_m"].values
-    dist = regions["distance_to_river_km"].values
+    urban = regions["urban_fraction"].to_numpy()
+    slope = regions["slope_deg"].to_numpy()
+    elev = regions["elevation_m"].to_numpy()
+    dist = regions["distance_to_river_km"].to_numpy()
 
     r3 = _rolling_sum(rain, 3)
     h_river = 1.6 * (level - danger)                                 # riverine
@@ -247,8 +247,8 @@ def generate_synthetic_sources(cfg: dict) -> dict[str, pd.DataFrame]:
     flood, z = _simulate_floods(rng, regions, rain, sm, porosity, level, danger, syn["target_flood_rate"])
 
     keys = pd.DataFrame({
-        "region_id": np.repeat(regions["region_id"].values, len(dates)),
-        "date": np.tile(dates.values, len(regions)),
+        "region_id": np.repeat(regions["region_id"].to_numpy(), len(dates)),
+        "date": np.tile(dates.to_numpy(), len(regions)),
     })
 
     def table(**cols):

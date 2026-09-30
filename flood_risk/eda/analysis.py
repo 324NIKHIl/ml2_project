@@ -60,9 +60,9 @@ def run_eda(raw_integrated: pd.DataFrame, clean: pd.DataFrame, figures_dir: Path
     summary["class_balance"] = counts.to_dict()
     summary["flood_rate"] = float(df["flood"].mean())
     fig, ax = plt.subplots(figsize=(5, 4))
-    sns.barplot(x=counts.index, y=counts.values, hue=counts.index,
+    sns.barplot(x=counts.index, y=counts.to_numpy(), hue=counts.index,
                 palette=["#4c78a8", "#e45756"], legend=False, ax=ax)
-    for i, v in enumerate(counts.values):
+    for i, v in enumerate(counts.to_numpy()):
         ax.text(i, v, f"{v:,}\n({v / counts.sum():.1%})", ha="center", va="bottom")
     ax.set(title="Class balance (region-days)", xlabel="", ylabel="Count")
     ax.set_ylim(0, counts.max() * 1.15)
@@ -120,7 +120,7 @@ def run_eda(raw_integrated: pd.DataFrame, clean: pd.DataFrame, figures_dir: Path
     summary["flood_days_per_year_by_district"] = {f"{d} ({s})": round(v, 1) for (d, s), v in regional.items()}
     fig, ax = plt.subplots(figsize=(8, 10))
     labels = [f"{d} ({s})" for d, s in regional.index]
-    ax.barh(labels, regional.values, color=matplotlib.colormaps["Reds"](0.3 + 0.7 * regional.values / regional.values.max()))
+    ax.barh(labels, regional.to_numpy(), color=matplotlib.colormaps["Reds"](0.3 + 0.7 * regional.to_numpy() / regional.to_numpy().max()))
     ax.set(title="Average flood days per year by district", xlabel="Flood days / year")
     _save(fig, figures_dir / "eda_06_regional_flood_frequency.png")
 
@@ -138,7 +138,7 @@ def run_eda(raw_integrated: pd.DataFrame, clean: pd.DataFrame, figures_dir: Path
     ax2.set_ylabel("Flood days (% of region-days)")
     ax2.grid(False)
     ax1.set_title("Seasonality: rainfall and flood occurrence by month")
-    ax3.plot(yearly.index, yearly.values, marker="o", color="#e45756")
+    ax3.plot(yearly.index, yearly.to_numpy(), marker="o", color="#e45756")
     ax3.set(title="Total flood days per year (all districts)", xlabel="Year", ylabel="Flood days")
     _save(fig, figures_dir / "eda_07_temporal_patterns.png")
 

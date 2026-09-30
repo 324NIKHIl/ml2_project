@@ -27,6 +27,10 @@ from flood_risk.utils import load_json  # noqa: E402
 
 st.set_page_config(page_title="Flood Risk Early Warning", page_icon="🌊", layout="wide")
 
+# Streamlit >= 1.50 uses width="stretch"; older releases only understand use_container_width.
+_ST_VERSION = tuple(int(part) for part in st.__version__.split(".")[:2])
+FULL_WIDTH = {"width": "stretch"} if _ST_VERSION >= (1, 50) else {"use_container_width": True}
+
 CFG = load_config()
 P = CFG["paths"]
 REQUIRED = [P["models_dir"] / "best_model.joblib", P["processed_dir"] / "features.parquet",
@@ -164,7 +168,7 @@ with tab_map:
             fig.update_geos(fitbounds="locations", showcountries=True, showland=True, landcolor="#f3f3f3",
                             showocean=True, oceancolor="#dbe9f6", resolution=50)
         fig.update_layout(height=560, margin=dict(l=0, r=0, t=0, b=0), legend_title_text="Risk level")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, **FULL_WIDTH)
     with right:
         st.subheader("Early-warning alerts")
         if alerts.empty:
@@ -187,7 +191,7 @@ with tab_map:
         "label": "District", "flood_probability": "Flood probability", "risk_level": "Risk level",
         "actual_flood": "Flood occurred (ground truth)"})
     table["Flood occurred (ground truth)"] = table["Flood occurred (ground truth)"].map({1: "Yes", 0: "No"})
-    st.dataframe(table.sort_values("Flood probability", ascending=False), hide_index=True, use_container_width=True,
+    st.dataframe(table.sort_values("Flood probability", ascending=False), hide_index=True, **FULL_WIDTH,
                  column_config={"Flood probability": st.column_config.ProgressColumn(format="%.2f", min_value=0, max_value=1)})
 
 # ----------------------------------------------------------------------------- tab: region detail
@@ -197,12 +201,12 @@ with tab_region:
     row = current[current["region_id"] == rid].iloc[0]
     c1, c2 = st.columns([1, 2])
     with c1:
-        st.plotly_chart(gauge(row["flood_probability"], "Flood probability"), use_container_width=True)
+        st.plotly_chart(gauge(row["flood_probability"], "Flood probability"), **FULL_WIDTH)
         st.markdown(f"{risk_badge(row['risk_level'])} &nbsp; {HEADLINES[row['risk_level']]}", unsafe_allow_html=True)
         st.markdown("**Recommended actions**\n" + "\n".join(f"- {r}" for r in row["recommendations"]))
     with c2:
         table = explain_rows(day[day["region_id"] == rid], 8)[0]
-        st.plotly_chart(contribution_chart(table), use_container_width=True)
+        st.plotly_chart(contribution_chart(table), **FULL_WIDTH)
 
     window = st.slider("Trend window (days either side of the selected date)", 15, 180, 60, step=15)
     hist = test_preds[(test_preds["region_id"] == rid)
@@ -223,7 +227,7 @@ with tab_region:
                       yaxis=dict(title="Flood probability (%)", range=[0, 105]),
                       yaxis2=dict(title="Rainfall (mm)", overlaying="y", side="right", showgrid=False),
                       legend=dict(orientation="h", y=-0.2))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, **FULL_WIDTH)
 
 # ----------------------------------------------------------------------------- tab: what-if
 with tab_sim:
@@ -256,8 +260,8 @@ with tab_sim:
     p_new = predictor.predict_proba(scenario)[0]
     level_new = classify_probability([p_new], predictor.levels)[0]
     g1, g2 = st.columns(2)
-    g1.plotly_chart(gauge(p_base, "Observed conditions"), use_container_width=True)
-    g2.plotly_chart(gauge(p_new, "Scenario"), use_container_width=True)
+    g1.plotly_chart(gauge(p_base, "Observed conditions"), **FULL_WIDTH)
+    g2.plotly_chart(gauge(p_new, "Scenario"), **FULL_WIDTH)
     st.markdown(f"Scenario risk level: {risk_badge(level_new)} &nbsp; {HEADLINES[level_new]}", unsafe_allow_html=True)
     st.markdown("**Recommended actions**\n" + "\n".join(f"- {r}" for r in recommendations_for(level_new)))
 
@@ -269,7 +273,7 @@ with tab_perf:
     st.dataframe(show.rename(columns={"model_name": "Model", "accuracy": "Accuracy", "precision": "Precision",
                                       "recall": "Recall", "f1": "F1", "roc_auc": "ROC-AUC", "pr_auc": "PR-AUC",
                                       "brier": "Brier", "valid_pr_auc": "Validation PR-AUC"}).round(4),
-                 hide_index=True, use_container_width=True)
+                 hide_index=True, **FULL_WIDTH)
     st.caption(f"Best model selected on validation {metrics['selection_metric'].upper()}: **{metrics['best_model_name']}**. "
                f"Decision threshold for Precision/Recall/F1: probability ≥ {metrics['decision_threshold']} (High or Severe).")
 
@@ -280,13 +284,13 @@ with tab_perf:
                                     "mean_predicted_probability": "Mean predicted probability",
                                     "observed_flood_rate": "Observed flood rate",
                                     "share_of_all_floods": "Share of all floods"}).round(3),
-                 hide_index=True, use_container_width=True)
+                 hide_index=True, **FULL_WIDTH)
     figs = sorted((P["figures_dir"]).glob("eval_*.png")) + sorted((P["figures_dir"]).glob("features_*.png"))
     for f1, f2 in zip(figs[::2], figs[1::2] + [None]):
         c1, c2 = st.columns(2)
-        c1.image(str(f1), use_container_width=True)
+        c1.image(str(f1), **FULL_WIDTH)
         if f2:
-            c2.image(str(f2), use_container_width=True)
+            c2.image(str(f2), **FULL_WIDTH)
 
 # ----------------------------------------------------------------------------- tab: EDA
 with tab_eda:
@@ -300,7 +304,7 @@ with tab_eda:
         "eda_07": "Floods follow the monsoon (Jun–Sep); year-to-year variability is large.",
     }
     for f in sorted(P["figures_dir"].glob("eda_*.png")):
-        st.image(str(f), caption=captions.get(f.stem[:6], f.stem), use_container_width=True)
+        st.image(str(f), caption=captions.get(f.stem[:6], f.stem), **FULL_WIDTH)
 
 # ----------------------------------------------------------------------------- tab: about
 with tab_about:
